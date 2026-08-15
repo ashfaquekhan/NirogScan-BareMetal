@@ -1,0 +1,15 @@
+# PlatformIO build output
+.pio/
+
+# IDE
+.vscode/
+
+# ESP-IDF generated config (regenerated from sdkconfig.defaults)
+sdkconfig
+sdkconfig.old
+sdkconfig.healthypi5_esp32c3
+
+# build artifacts
+*.bin
+*.uf2
+*.elf

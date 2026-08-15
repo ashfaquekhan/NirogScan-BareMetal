@@ -1,0 +1,20 @@
+# HealthyPi5 ESP32-C3 - ESP-IDF defaults
+
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
+
+# Flash size + a large single-app partition so the NimBLE image fits.
+# (If your C3 module is not 4 MB, change both the ini flash_size and this.)
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# --- Milestone 2: NimBLE (BLE peripheral) ---
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y
+CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y
+CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
+CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
+
+# NOTE: if a sdkconfig change doesn't seem to take effect, delete the generated
+# `sdkconfig` file in this project and rebuild - PlatformIO regenerates it from
+# this defaults file.
