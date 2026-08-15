@@ -22,7 +22,7 @@
 #define SPI_PORT spi0
 #define I2C_PORT i2c1
 #define UART_ESP uart1
-#define SPI_HZ 4000000u        // both MAX30001 (rated 4MHz) & AFE4400 (8MHz) OK; shared bus, MODE0
+#define SPI_HZ 1000000u        // original MAX30001 library SPI speed; shared bus, MODE0
 #define I2C_HZ 400000u
 #define UART_BAUD 230400u
 
@@ -31,6 +31,7 @@ static inline uint32_t now_ms(void) { return to_ms_since_boot(get_absolute_time(
 // ---- MAX30001 registers ----------------------------------------------------
 #define MX_RREG 0x01
 #define MX_STATUS 0x01
+#define MX_EN_INT 0x02
 #define MX_MNGR_INT 0x04
 #define MX_MNGR_DYN 0x05
 #define MX_SW_RST 0x08
@@ -45,6 +46,7 @@ static inline uint32_t now_ms(void) { return to_ms_since_boot(get_absolute_time(
 #define MX_CNFG_BIOZ 0x18
 #define MX_CNFG_BIOZ_LC 0x1A
 #define MX_CNFG_RTOR1 0x1D
+#define MX_CNFG_RTOR2 0x1E
 #define MX_ECG_FIFO_BURST 0x20
 #define MX_BIOZ_FIFO_BURST 0x22
 #define MX_RTOR 0x25
@@ -97,21 +99,23 @@ static bool mx_init(void)
     mx_write(MX_SW_RST, 0); sleep_ms(100);
     uint32_t info = mx_read(MX_INFO);
     bool found = (((info >> 16) & 0xF0) == 0x50);
-    // 0x0C0017: ECG+BioZ enabled + RBIAS ON (input bias resistors, 100 Mohm,
-    // on both ECG inputs). RBIAS gives the biopotential inputs a defined DC
-    // operating point; without it the high-impedance inputs float and the ECG
-    // baseline wanders (the low-frequency noise). This is the sensor's own fix,
-    // not a filter. (DC lead-off stays off.)
-    mx_write(MX_CNFG_GEN,     0x0C0017); sleep_ms(2);
-    mx_write(MX_CNFG_ECG,     0x825000); sleep_ms(2);
+    // Register values matched to the original ProtoCentral Arduino library
+    // (MAX30001::BeginECGBioZ + the sketch's enable_rtor_detection()).
+    mx_write(MX_CNFG_GEN,     0x0C0004); sleep_ms(2);  // ECG+BioZ, no RBIAS/dcloff
+    mx_write(MX_CNFG_CAL,     0x720000); sleep_ms(2);  // calibration sources off
+    mx_write(MX_CNFG_ECG,     0x825000); sleep_ms(2);  // 128 SPS, gain, 0.5Hz HPF, 40Hz LPF
     mx_write(MX_CNFG_EMUX,    0x000000); sleep_ms(2);
-    mx_write(MX_CNFG_BIOZ_LC, 0x800000); sleep_ms(2);
-    mx_write(MX_CNFG_BIOZ,    0x025443); sleep_ms(2);  // resp-tuned: AHPF bypass, 0.05Hz DHPF
+    mx_write(MX_CNFG_BIOZ,    0x259421); sleep_ms(2);  // original BioZ config
+    mx_write(MX_CNFG_BIOZ_LC, 0x800000); sleep_ms(2);  // low-current mode off
     mx_write(MX_CNFG_BMUX,    0x000040); sleep_ms(2);
-    mx_write(MX_CNFG_RTOR1,   0x3FC600); sleep_ms(2);
-    mx_write(MX_CNFG_CAL,     0x720000); sleep_ms(2);
+    mx_write(MX_CNFG_RTOR1,   0x3FC600); sleep_ms(2);  // R-to-R detection enable
+    mx_write(MX_CNFG_RTOR2,   0x202400); sleep_ms(2);
+    mx_write(MX_EN_INT,       0x000400); sleep_ms(2);  // R-to-R interrupt (RRINT)
+    // MNGR_INT=0 kept: this firmware reads the FIFO status-driven (EINT/BINT per
+    // sample). It is a FIFO-management register, not a signal setting, so the
+    // MAX30001 signal config still matches the original. MNGR_DYN is left at its
+    // reset default, exactly as the original library did (it never wrote it).
     mx_write(MX_MNGR_INT,     0x000000); sleep_ms(2);
-    mx_write(MX_MNGR_DYN,     0xBFFFFF); sleep_ms(2);
     mx_synch(); sleep_ms(100);
     return found;
 }
