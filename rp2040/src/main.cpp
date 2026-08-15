@@ -22,7 +22,7 @@
 #define SPI_PORT spi0
 #define I2C_PORT i2c1
 #define UART_ESP uart1
-#define SPI_HZ 1000000u
+#define SPI_HZ 4000000u        // both MAX30001 (rated 4MHz) & AFE4400 (8MHz) OK; shared bus, MODE0
 #define I2C_HZ 400000u
 #define UART_BAUD 230400u
 
@@ -97,7 +97,12 @@ static bool mx_init(void)
     mx_write(MX_SW_RST, 0); sleep_ms(100);
     uint32_t info = mx_read(MX_INFO);
     bool found = (((info >> 16) & 0xF0) == 0x50);
-    mx_write(MX_CNFG_GEN,     0x0C0004); sleep_ms(2);
+    // 0x0C0017: ECG+BioZ enabled + RBIAS ON (input bias resistors, 100 Mohm,
+    // on both ECG inputs). RBIAS gives the biopotential inputs a defined DC
+    // operating point; without it the high-impedance inputs float and the ECG
+    // baseline wanders (the low-frequency noise). This is the sensor's own fix,
+    // not a filter. (DC lead-off stays off.)
+    mx_write(MX_CNFG_GEN,     0x0C0017); sleep_ms(2);
     mx_write(MX_CNFG_ECG,     0x825000); sleep_ms(2);
     mx_write(MX_CNFG_EMUX,    0x000000); sleep_ms(2);
     mx_write(MX_CNFG_BIOZ_LC, 0x800000); sleep_ms(2);
